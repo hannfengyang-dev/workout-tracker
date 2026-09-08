@@ -5,17 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Tracker">
+  <meta name="apple-mobile-web-app-title" content="Workout Tracker">
   <title>Workout Tracker</title>
   <style>
     :root {
       --bg: #000000;
       --card: #1c1c1e;
+      --card-alt: #2c2c2e;
       --accent: #0a84ff;
       --text: #ffffff;
       --muted: #8e8e93;
-      --border: #2c2c2e;
+      --border: #38383a;
       --green: #30d158;
+      --red: #ff453a;
+      --orange: #ff9f0a;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
@@ -23,195 +26,391 @@
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-      padding: env(safe-area-inset-top, 20px) 16px calc(env(safe-area-inset-bottom, 20px) + 20px);
+      padding: env(safe-area-inset-top, 24px) 16px calc(env(safe-area-inset-bottom, 24px) + 24px);
     }
-    header { padding: 12px 0 16px; }
-    h1 { margin: 0; font-size: 24px; font-weight: 700; }
-    .tabs {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 20px;
-    }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    h1 { margin: 0; font-size: 22px; font-weight: 700; }
+    .nav-tabs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px; }
     .tab-btn {
       background: var(--card);
       border: 1px solid var(--border);
       color: var(--muted);
-      padding: 10px;
-      font-size: 15px;
+      padding: 10px 4px;
+      font-size: 14px;
       font-weight: 600;
       border-radius: 10px;
     }
-    .tab-btn.active {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-    }
-    .exercise-card {
+    .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .card {
       background: var(--card);
       border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
+      padding: 14px;
+      margin-bottom: 14px;
       border: 1px solid var(--border);
     }
-    .exercise-title {
-      font-size: 18px;
-      font-weight: 600;
+    .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+    .card-title { font-size: 17px; font-weight: 600; }
+    .card-target { font-size: 13px; color: var(--muted); }
+    .warmup-box {
+      background: rgba(255, 159, 10, 0.12);
+      border: 1px dashed var(--orange);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: #ffd60a;
       margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
     }
     .set-row {
       display: grid;
-      grid-template-columns: 32px 1fr 1fr 44px;
-      gap: 8px;
+      grid-template-columns: 28px 1fr 1fr 40px 36px;
+      gap: 6px;
       align-items: center;
       margin-bottom: 8px;
     }
-    .set-num { color: var(--muted); font-weight: 600; font-size: 14px; text-align: center; }
+    .set-label { color: var(--muted); font-size: 13px; font-weight: 600; text-align: center; }
     input {
-      background: #2c2c2e;
-      border: 1px solid #3a3a3c;
+      background: var(--card-alt);
+      border: 1px solid var(--border);
       border-radius: 8px;
       color: #fff;
-      padding: 10px;
+      padding: 10px 4px;
       font-size: 16px; /* Prevents auto-zoom in iOS Safari */
       text-align: center;
       width: 100%;
     }
+    input::placeholder { color: #636366; font-size: 14px; }
     input:focus { outline: none; border-color: var(--accent); }
-    .btn-save {
-      background: #2c2c2e;
+    .btn-check {
+      background: var(--card-alt);
       border: none;
       color: var(--green);
-      font-weight: 700;
-      font-size: 18px;
+      font-size: 16px;
       border-radius: 8px;
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      height: 38px;
     }
-    .btn-save.saved { background: var(--green); color: #000; }
-    .btn-action {
+    .btn-check.done { background: var(--green); color: #000; font-weight: bold; }
+    .btn-del {
+      background: transparent;
+      border: none;
+      color: var(--red);
+      font-size: 16px;
+      height: 38px;
+      opacity: 0.7;
+    }
+    .btn-secondary {
       width: 100%;
-      background: #2c2c2e;
+      background: var(--card-alt);
       color: var(--accent);
       border: none;
-      padding: 10px;
+      padding: 9px;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
-      margin-top: 8px;
+      margin-top: 6px;
     }
+    .btn-finish {
+      width: 100%;
+      background: var(--green);
+      color: #000000;
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      margin-top: 18px;
+    }
+    .history-month { font-size: 16px; font-weight: 700; color: var(--accent); margin: 18px 0 8px; }
+    .history-item { background: var(--card); border-radius: 10px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); }
+    .history-item-header { display: flex; justify-content: space-between; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+    .history-row { font-size: 13px; color: var(--muted); margin-bottom: 3px; }
+    .btn-export { background: var(--card); border: 1px solid var(--border); color: var(--accent); padding: 8px 12px; border-radius: 8px; font-size: 12px; }
   </style>
 </head>
 <body>
 
   <header>
-    <h1>Workout Log</h1>
+    <h1 id="view-title">Day 1 Workout</h1>
+    <button class="btn-export" id="export-btn" style="display: none;" onclick="exportCSV()">Export CSV</button>
   </header>
 
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchDay(1)">Day A</button>
-    <button class="tab-btn" onclick="switchDay(2)">Day B</button>
-    <button class="tab-btn" onclick="switchDay(3)">Day C</button>
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="setView('day1')">Day 1</button>
+    <button class="tab-btn" onclick="setView('day2')">Day 2</button>
+    <button class="tab-btn" onclick="setView('history')">History</button>
   </div>
 
-  <div id="exercise-list"></div>
+  <div id="workout-view">
+    <div id="exercise-list"></div>
+    <button class="btn-secondary" onclick="addExercisePrompt()">+ Add Custom Exercise</button>
+    <button class="btn-finish" onclick="finishWorkout()">Finish Workout</button>
+  </div>
 
-  <button class="btn-action" onclick="addExercisePrompt()">+ Add Custom Exercise</button>
+  <div id="history-view" style="display: none;"></div>
 
   <script>
-    const defaultRoutines = {
-      1: ["Squat", "Bench Press", "Barbell Row"],
-      2: ["Deadlift", "Overhead Press", "Lat Pulldown"],
-      3: ["Leg Press", "Incline Dumbbell Press", "Cable Row"]
+    const defaultTemplates = {
+      day1: [
+        { name: "Lat Pulldown", target: "8-10 reps", lastWeight: 45, lastReps: 10, sets: 3 },
+        { name: "Machine Shoulder Press", target: "8-10 reps", lastWeight: 16.25, lastReps: 10, sets: 3 },
+        { name: "Hip-Dominant Split Squat", target: "6-8 reps", lastWeight: 16, lastReps: 8, sets: 2 },
+        { name: "Hip Thrust", target: "8-10 reps", lastWeight: 27.5, lastReps: 10, sets: 2 },
+        { name: "Seated Leg Curl", target: "10-12 reps", lastWeight: 38, lastReps: 10, sets: 2 },
+        { name: "Standing Bicep Curl", target: "10-12 reps", lastWeight: 7.5, lastReps: 10, sets: 3 },
+        { name: "Lateral Raises", target: "12-15 reps", lastWeight: 5, lastReps: 15, sets: 3 }
+      ],
+      day2: [
+        { name: "Cable Row", target: "6-8 reps", lastWeight: 43, lastReps: 8, sets: 3 },
+        { name: "Dumbbell Press", target: "8-10 reps", lastWeight: 20, lastReps: 10, sets: 3 },
+        { name: "Quad-Biased Split Squat", target: "8-10 reps", lastWeight: 12.5, lastReps: 10, sets: 2 },
+        { name: "Chest Fly", target: "12-15 reps", lastWeight: 27.5, lastReps: 12, sets: 3 },
+        { name: "Leg Press", target: "8-10 reps", lastWeight: 30, lastReps: 10, sets: 2 },
+        { name: "Triceps Rope Pushdown", target: "10-12 reps", lastWeight: 23, lastReps: 12, sets: 3 }
+      ]
     };
 
-    let currentDay = 1;
-    let data = JSON.parse(localStorage.getItem("workoutData") || "{}");
+    let currentView = "day1";
+    let state = JSON.parse(localStorage.getItem("tracker_state") || "null");
 
-    function getExercises(day) {
-      if (!data[day]) {
-        data[day] = defaultRoutines[day].map(name => ({
-          name,
-          sets: [{ weight: "", reps: "", saved: false }]
-        }));
-        persist();
-      }
-      return data[day];
+    if (!state) {
+      state = {
+        templates: JSON.parse(JSON.stringify(defaultTemplates)),
+        active: { day1: [], day2: [] },
+        history: []
+      };
+      initActiveSets("day1");
+      initActiveSets("day2");
+      saveState();
     }
 
-    function persist() {
-      localStorage.setItem("workoutData", JSON.stringify(data));
+    function initActiveSets(day) {
+      state.active[day] = state.templates[day].map(ex => ({
+        name: ex.name,
+        target: ex.target,
+        sets: Array.from({ length: ex.sets || 3 }, () => ({ weight: "", reps: "", done: false }))
+      }));
     }
 
-    function switchDay(day) {
-      currentDay = day;
+    function saveState() {
+      localStorage.setItem("tracker_state", JSON.stringify(state));
+    }
+
+    function setView(view) {
+      currentView = view;
       document.querySelectorAll(".tab-btn").forEach((btn, idx) => {
-        btn.classList.toggle("active", idx + 1 === day);
+        btn.classList.toggle("active", (view === "day1" && idx === 0) || (view === "day2" && idx === 1) || (view === "history" && idx === 2));
       });
-      render();
+      
+      const isHist = view === "history";
+      document.getElementById("workout-view").style.display = isHist ? "none" : "block";
+      document.getElementById("history-view").style.display = isHist ? "block" : "none";
+      document.getElementById("export-btn").style.display = isHist ? "block" : "none";
+      document.getElementById("view-title").innerText = isHist ? "Workout History" : (view === "day1" ? "Day 1 Workout" : "Day 2 Workout");
+
+      if (isHist) renderHistory();
+      else renderWorkout();
     }
 
-    function render() {
-      const list = document.getElementById("exercise-list");
-      list.innerHTML = "";
-      const exercises = getExercises(currentDay);
+    function renderWorkout() {
+      const container = document.getElementById("exercise-list");
+      container.innerHTML = "";
+      const exercises = state.active[currentView];
 
       exercises.forEach((ex, exIdx) => {
+        const tpl = state.templates[currentView].find(t => t.name === ex.name) || {};
+        const baseWeight = parseFloat(ex.sets[0]?.weight) || parseFloat(tpl.lastWeight) || 0;
+        const w1 = (baseWeight * 0.5).toFixed(1).replace(/\.0$/, '');
+        const w2 = (baseWeight * 0.8).toFixed(1).replace(/\.0$/, '');
+
         const card = document.createElement("div");
-        card.className = "exercise-card";
-        
-        let setsHTML = ex.sets.map((s, sIdx) => `
-          <div class="set-row">
-            <span class="set-num">${sIdx + 1}</span>
-            <input type="number" step="any" placeholder="kg" value="${s.weight}" 
-                   oninput="updateSet(${exIdx}, ${sIdx}, 'weight', this.value)">
-            <input type="number" placeholder="reps" value="${s.reps}" 
-                   oninput="updateSet(${exIdx}, ${sIdx}, 'reps', this.value)">
-            <button class="btn-save ${s.saved ? 'saved' : ''}" 
-                    onclick="toggleSave(${exIdx}, ${sIdx})">✓</button>
-          </div>
-        `).join("");
+        card.className = "card";
+
+        let setsHTML = ex.sets.map((set, sIdx) => {
+          const phWeight = tpl.lastWeight !== undefined ? `${tpl.lastWeight} kg` : "kg";
+          const phReps = tpl.lastReps !== undefined ? `${tpl.lastReps}` : "reps";
+          return `
+            <div class="set-row">
+              <span class="set-label">S${sIdx + 1}</span>
+              <input type="number" step="any" inputmode="decimal" placeholder="${phWeight}" value="${set.weight}" 
+                     oninput="updateSet(${exIdx}, ${sIdx}, 'weight', this.value)">
+              <input type="number" inputmode="numeric" placeholder="${phReps}" value="${set.reps}" 
+                     oninput="updateSet(${exIdx}, ${sIdx}, 'reps', this.value)">
+              <button class="btn-check ${set.done ? 'done' : ''}" onclick="toggleDone(${exIdx}, ${sIdx})">✓</button>
+              <button class="btn-del" onclick="deleteSet(${exIdx}, ${sIdx})">✕</button>
+            </div>
+          `;
+        }).join("");
 
         card.innerHTML = `
-          <div class="exercise-title">${ex.name}</div>
+          <div class="card-header">
+            <span class="card-title">${ex.name}</span>
+            <span class="card-target">${ex.target || ''}</span>
+          </div>
+          ${baseWeight > 0 ? `
+            <div class="warmup-box">
+              <span>Warm-up 1 (50%): <strong>${w1} kg</strong></span>
+              <span>Warm-up 2 (80%): <strong>${w2} kg</strong></span>
+            </div>
+          ` : ''}
           ${setsHTML}
-          <button class="btn-action" onclick="addSet(${exIdx})">+ Add Set</button>
+          <button class="btn-secondary" onclick="addSet(${exIdx})">+ Add Set</button>
         `;
-        list.appendChild(card);
+        container.appendChild(card);
       });
     }
 
-    function updateSet(exIdx, setIdx, field, val) {
-      data[currentDay][exIdx].sets[setIdx][field] = val;
-      data[currentDay][exIdx].sets[setIdx].saved = false;
-      persist();
+    function updateSet(exIdx, sIdx, field, val) {
+      state.active[currentView][exIdx].sets[sIdx][field] = val;
+      saveState();
+      if (sIdx === 0 && field === 'weight') renderWorkout();
     }
 
-    function toggleSave(exIdx, setIdx) {
-      const set = data[currentDay][exIdx].sets[setIdx];
-      set.saved = !set.saved;
-      persist();
-      render();
+    function toggleDone(exIdx, sIdx) {
+      const set = state.active[currentView][exIdx].sets[sIdx];
+      set.done = !set.done;
+      saveState();
+      renderWorkout();
     }
 
     function addSet(exIdx) {
-      const prevSet = data[currentDay][exIdx].sets.slice(-1)[0] || { weight: "", reps: "" };
-      data[currentDay][exIdx].sets.push({ weight: prevSet.weight, reps: prevSet.reps, saved: false });
-      persist();
-      render();
+      const sets = state.active[currentView][exIdx].sets;
+      const last = sets[sets.length - 1] || { weight: "", reps: "" };
+      sets.push({ weight: last.weight, reps: last.reps, done: false });
+      saveState();
+      renderWorkout();
+    }
+
+    function deleteSet(exIdx, sIdx) {
+      const sets = state.active[currentView][exIdx].sets;
+      if (sets.length <= 1) {
+        sets[0] = { weight: "", reps: "", done: false };
+      } else {
+        sets.splice(sIdx, 1);
+      }
+      saveState();
+      renderWorkout();
     }
 
     function addExercisePrompt() {
-      const name = prompt("Exercise name:");
+      const name = prompt("Enter new exercise name:");
       if (!name) return;
-      data[currentDay].push({ name, sets: [{ weight: "", reps: "", saved: false }] });
-      persist();
-      render();
+      const target = prompt("Target reps (e.g., 8-10 reps):") || "8-10 reps";
+      
+      state.templates[currentView].push({ name, target, sets: 3 });
+      state.active[currentView].push({
+        name,
+        target,
+        sets: [{ weight: "", reps: "", done: false }]
+      });
+      saveState();
+      renderWorkout();
     }
 
-    render();
+    function finishWorkout() {
+      const activeExs = state.active[currentView];
+      const dateStr = new Date().toISOString().split("T")[0];
+      const completedExercises = [];
+
+      activeExs.forEach(ex => {
+        const filledSets = ex.sets.filter(s => s.weight !== "" && s.reps !== "");
+        if (filledSets.length > 0) {
+          completedExercises.push({
+            name: ex.name,
+            sets: filledSets.map(s => ({ weight: s.weight, reps: s.reps }))
+          });
+          const tpl = state.templates[currentView].find(t => t.name === ex.name);
+          if (tpl) {
+            tpl.lastWeight = filledSets[filledSets.length - 1].weight;
+            tpl.lastReps = filledSets[filledSets.length - 1].reps;
+          }
+        }
+      });
+
+      if (completedExercises.length === 0) {
+        alert("Please log at least one set with weight and reps before finishing.");
+        return;
+      }
+
+      state.history.unshift({
+        id: Date.now(),
+        date: dateStr,
+        day: currentView === "day1" ? "Day 1" : "Day 2",
+        exercises: completedExercises
+      });
+
+      initActiveSets(currentView);
+      saveState();
+      alert("Workout archived! Inputs refreshed for your next session.");
+      setView("history");
+    }
+
+    function renderHistory() {
+      const container = document.getElementById("history-view");
+      container.innerHTML = "";
+
+      if (state.history.length === 0) {
+        container.innerHTML = `<div style="color: var(--muted); text-align: center; margin-top: 40px;">No completed workouts logged yet.</div>`;
+        return;
+      }
+
+      const groups = {};
+      state.history.forEach(item => {
+        const monthYear = new Date(item.date).toLocaleString('default', { month: 'long', year: 'numeric' });
+        if (!groups[monthYear]) groups[monthYear] = [];
+        groups[monthYear].push(item);
+      });
+
+      for (const [month, entries] of Object.entries(groups)) {
+        const monthHeader = document.createElement("div");
+        monthHeader.className = "history-month";
+        monthHeader.innerText = month;
+        container.appendChild(monthHeader);
+
+        entries.forEach(entry => {
+          const item = document.createElement("div");
+          item.className = "history-item";
+          
+          let rowsHTML = entry.exercises.map(e => `
+            <div class="history-row">
+              <strong>${e.name}:</strong> ${e.sets.map(s => `${s.weight}kg × ${s.reps}`).join(", ")}
+            </div>
+          `).join("");
+
+          item.innerHTML = `
+            <div class="history-item-header">
+              <span>${entry.day} — ${entry.date}</span>
+            </div>
+            ${rowsHTML}
+          `;
+          container.appendChild(item);
+        });
+      }
+    }
+
+    function exportCSV() {
+      if (state.history.length === 0) {
+        alert("No history data to export.");
+        return;
+      }
+      let csv = "Date,Day,Exercise,Set,Weight (kg),Reps\n";
+      state.history.forEach(session => {
+        session.exercises.forEach(ex => {
+          ex.sets.forEach((set, idx) => {
+            csv += `"${session.date}","${session.day}","${ex.name}","Set ${idx + 1}","${set.weight}","${set.reps}"\n`;
+          });
+        });
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('href', url);
+      a.setAttribute('download', `workout_history_${new Date().toISOString().split("T")[0]}.csv`);
+      a.click();
+    }
+
+    renderWorkout();
   </script>
 </body>
 </html>
