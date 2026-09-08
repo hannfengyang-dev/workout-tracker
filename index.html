@@ -31,6 +31,7 @@
     }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     h1 { margin: 0; font-size: 22px; font-weight: 700; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
     .nav-tabs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px; }
     .tab-btn {
       background: var(--card);
@@ -161,16 +162,20 @@
     }
     .history-month { font-size: 16px; font-weight: 700; color: var(--accent); margin: 18px 0 8px; }
     .history-item { background: var(--card); border-radius: 10px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); }
-    .history-item-header { display: flex; justify-content: space-between; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+    .history-item-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
     .history-row { font-size: 13px; color: var(--muted); margin-bottom: 3px; }
     .btn-export { background: var(--card); border: 1px solid var(--border); color: var(--accent); padding: 8px 12px; border-radius: 8px; font-size: 12px; }
+    .btn-clear-all { background: var(--card); border: 1px solid var(--border); color: var(--red); padding: 8px 12px; border-radius: 8px; font-size: 12px; }
   </style>
 </head>
 <body>
 
   <header>
     <h1 id="view-title">Day 1 Workout</h1>
-    <button class="btn-export" id="export-btn" style="display: none;" onclick="exportCSV()">Export CSV</button>
+    <div class="header-actions">
+      <button class="btn-clear-all" id="clear-btn" style="display: none;" onclick="clearAllHistory()">Clear All</button>
+      <button class="btn-export" id="export-btn" style="display: none;" onclick="exportCSV()">Export CSV</button>
+    </div>
   </header>
 
   <div class="nav-tabs">
@@ -188,9 +193,8 @@
   <div id="history-view" style="display: none;"></div>
 
   <script>
-    const APP_VERSION = "v2_history_swap";
+    const APP_VERSION = "v3_history_delete";
 
-    // Common machine alternatives for occupied gym gear
     const swapCatalog = {
       "Lat Pulldown": ["Machine High Row", "Cable Pullover", "Neutral Grip Pulldown", "Assisted Pull-up"],
       "Machine Shoulder Press": ["Dumbbell Shoulder Press", "Overhead Barbell Press", "Arnold Press", "Smith Machine Press"],
@@ -227,7 +231,6 @@
       ]
     };
 
-    // Pre-loaded logs from late July through September 2026
     const initialHistory = [
       {
         id: 1725667200000, date: "2026-09-07", day: "Day 1",
@@ -394,13 +397,13 @@
     let currentView = "day1";
     let state = JSON.parse(localStorage.getItem("tracker_state") || "null");
 
-    // Version migration to seamlessly load historical data into Safari
     if (!state || state.version !== APP_VERSION) {
+      const existingHistory = (state && state.history && state.history.length > 0) ? state.history : initialHistory;
       state = {
         version: APP_VERSION,
         templates: JSON.parse(JSON.stringify(defaultTemplates)),
         active: { day1: [], day2: [] },
-        history: initialHistory
+        history: existingHistory
       };
       initActiveSets("day1");
       initActiveSets("day2");
@@ -421,7 +424,6 @@
       localStorage.setItem("tracker_state", JSON.stringify(state));
     }
 
-    // Helper: Finds the latest weight logged for any exercise across past history
     function findLatestWeight(exerciseName) {
       for (const session of state.history) {
         const found = session.exercises.find(e => e.name.toLowerCase() === exerciseName.toLowerCase());
@@ -443,6 +445,7 @@
       document.getElementById("workout-view").style.display = isHist ? "none" : "block";
       document.getElementById("history-view").style.display = isHist ? "block" : "none";
       document.getElementById("export-btn").style.display = isHist ? "block" : "none";
+      document.getElementById("clear-btn").style.display = isHist ? "block" : "none";
       document.getElementById("view-title").innerText = isHist ? "Workout History" : (view === "day1" ? "Day 1 Workout" : "Day 2 Workout");
 
       if (isHist) renderHistory();
@@ -458,7 +461,6 @@
         const tpl = state.templates[currentView].find(t => t.name === ex.originalName) || {};
         const isSwapped = ex.name !== ex.originalName;
 
-        // Determine placeholder baseline
         let phWeight = "";
         let phReps = "";
         const historicalMatch = findLatestWeight(ex.name);
@@ -473,7 +475,6 @@
           phReps = "reps";
         }
 
-        // Compute warm-up sets based on active working weight or previous best
         const baseWeight = parseFloat(ex.sets[0]?.weight) || parseFloat(historicalMatch?.weight) || (isSwapped ? 0 : parseFloat(tpl.lastWeight)) || 0;
         const w1 = (baseWeight * 0.5).toFixed(1).replace(/\.0$/, '');
         const w2 = (baseWeight * 0.8).toFixed(1).replace(/\.0$/, '');
@@ -481,7 +482,6 @@
         const card = document.createElement("div");
         card.className = "card";
 
-        // Build swap dropdown list
         const optionsList = (swapCatalog[ex.originalName] || []).concat(["+ Custom Exercise...", `↺ Revert to ${ex.originalName}`]);
         let optionsHTML = optionsList.map(opt => `<option value="${opt}">${opt}</option>`).join("");
 
@@ -634,11 +634,26 @@
         exercises: completedExercises
       });
 
-      // Reset active session to original routine templates (reverting any temporary swaps)
       initActiveSets(currentView);
       saveState();
       alert("Workout archived! Inputs refreshed for your next session.");
       setView("history");
+    }
+
+    function deleteHistoryEntry(id) {
+      if (confirm("Delete this completed workout from history?")) {
+        state.history = state.history.filter(session => session.id !== id);
+        saveState();
+        renderHistory();
+      }
+    }
+
+    function clearAllHistory() {
+      if (confirm("Are you sure you want to delete ALL workout history? This action cannot be undone.")) {
+        state.history = [];
+        saveState();
+        renderHistory();
+      }
     }
 
     function renderHistory() {
@@ -676,6 +691,7 @@
           item.innerHTML = `
             <div class="history-item-header">
               <span>${entry.day} — ${entry.date}</span>
+              <button class="btn-del" style="height: auto; padding: 0 4px;" onclick="deleteHistoryEntry(${entry.id})">✕</button>
             </div>
             ${rowsHTML}
           `;
