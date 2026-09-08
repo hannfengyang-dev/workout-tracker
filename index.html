@@ -19,6 +19,7 @@
       --green: #30d158;
       --red: #ff453a;
       --orange: #ff9f0a;
+      --purple: #bf5af2;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
@@ -48,9 +49,46 @@
       margin-bottom: 14px;
       border: 1px solid var(--border);
     }
-    .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .card-title-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .card-title { font-size: 17px; font-weight: 600; }
-    .card-target { font-size: 13px; color: var(--muted); }
+    .card-badge {
+      font-size: 11px;
+      background: rgba(191, 90, 242, 0.2);
+      color: var(--purple);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .card-controls { display: flex; align-items: center; gap: 6px; }
+    .card-target { font-size: 12px; color: var(--muted); }
+    .btn-swap-toggle {
+      background: var(--card-alt);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+    }
+    .swap-panel {
+      background: #252528;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 12px;
+      display: flex;
+      gap: 6px;
+    }
+    .swap-select {
+      flex: 1;
+      background: var(--card-alt);
+      color: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 14px;
+    }
     .warmup-box {
       background: rgba(255, 159, 10, 0.12);
       border: 1px dashed var(--orange);
@@ -76,7 +114,7 @@
       border-radius: 8px;
       color: #fff;
       padding: 10px 4px;
-      font-size: 16px; /* Prevents auto-zoom in iOS Safari */
+      font-size: 16px;
       text-align: center;
       width: 100%;
     }
@@ -150,6 +188,25 @@
   <div id="history-view" style="display: none;"></div>
 
   <script>
+    const APP_VERSION = "v2_history_swap";
+
+    // Common machine alternatives for occupied gym gear
+    const swapCatalog = {
+      "Lat Pulldown": ["Machine High Row", "Cable Pullover", "Neutral Grip Pulldown", "Assisted Pull-up"],
+      "Machine Shoulder Press": ["Dumbbell Shoulder Press", "Overhead Barbell Press", "Arnold Press", "Smith Machine Press"],
+      "Hip-Dominant Split Squat": ["Bulgarian Split Squat", "Romanian Deadlift (RDL)", "Dumbbell RDL", "Single-Leg Press"],
+      "Hip Thrust": ["Barbell Hip Thrust", "Glute Bridge Machine", "Smith Machine Hip Thrust", "Cable Pull-Through"],
+      "Seated Leg Curl": ["Lying Leg Curl", "Standing Single-Leg Curl", "Dumbbell Romanian Deadlift"],
+      "Standing Bicep Curl": ["Incline Bicep Curl", "Cable Bicep Curl", "Hammer Curl", "Preacher Curl"],
+      "Lateral Raises": ["Cable Lateral Raise", "Machine Lateral Raise", "Incline Dumbbell Lateral Raise"],
+      "Cable Row": ["Machine Row", "Chest-Supported T-Bar Row", "Dumbbell Row", "Barbell Row"],
+      "Dumbbell Press": ["Barbell Bench Press", "Incline Dumbbell Press", "Chest Press Machine", "Smith Bench Press"],
+      "Quad-Biased Split Squat": ["Leg Press", "Hack Squat", "V-Squat", "Goblet Squat", "Bulgarian Split Squat"],
+      "Chest Fly": ["Pec Deck Machine", "Cable Fly / Crossover", "Incline Dumbbell Fly"],
+      "Leg Press": ["Hack Squat", "V-Squat", "Barbell Back Squat", "Goblet Squat", "Smith Machine Squat"],
+      "Triceps Rope Pushdown": ["Overhead Cable Extension", "Straight Bar Pushdown", "Dips", "Skull Crushers"]
+    };
+
     const defaultTemplates = {
       day1: [
         { name: "Lat Pulldown", target: "8-10 reps", lastWeight: 45, lastReps: 10, sets: 3 },
@@ -166,18 +223,184 @@
         { name: "Quad-Biased Split Squat", target: "8-10 reps", lastWeight: 12.5, lastReps: 10, sets: 2 },
         { name: "Chest Fly", target: "12-15 reps", lastWeight: 27.5, lastReps: 12, sets: 3 },
         { name: "Leg Press", target: "8-10 reps", lastWeight: 30, lastReps: 10, sets: 2 },
-        { name: "Triceps Rope Pushdown", target: "10-12 reps", lastWeight: 23, lastReps: 12, sets: 3 }
+        { name: "Triceps Rope Pushdown", target: "10-12 reps", lastWeight: 25, lastReps: 8, sets: 3 }
       ]
     };
+
+    // Pre-loaded logs from late July through September 2026
+    const initialHistory = [
+      {
+        id: 1725667200000, date: "2026-09-07", day: "Day 1",
+        exercises: [
+          { name: "Lat Pulldown", sets: [{ weight: "45", reps: "10" }, { weight: "45", reps: "10" }, { weight: "45", reps: "9" }] },
+          { name: "Machine Shoulder Press", sets: [{ weight: "16.25", reps: "10" }, { weight: "16.25", reps: "8" }, { weight: "16.25", reps: "7" }] },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "16", reps: "8" }, { weight: "16", reps: "8" }] },
+          { name: "Hip Thrust", sets: [{ weight: "27.5", reps: "10" }, { weight: "27.5", reps: "10" }] },
+          { name: "Seated Leg Curl", sets: [{ weight: "38", reps: "10" }, { weight: "38", reps: "10" }] },
+          { name: "Standing Bicep Curl", sets: [{ weight: "7.5", reps: "10" }, { weight: "7.5", reps: "8" }, { weight: "7.5", reps: "7" }] },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "15" }, { weight: "5", reps: "15" }, { weight: "5", reps: "15" }] }
+        ]
+      },
+      {
+        id: 1725148800000, date: "2026-09-01", day: "Day 1",
+        exercises: [
+          { name: "Lat Pulldown", sets: [{ weight: "45", reps: "8" }, { weight: "45", reps: "8" }, { weight: "45", reps: "9" }] },
+          { name: "Machine Shoulder Press", sets: [{ weight: "16.25", reps: "8" }, { weight: "16.25", reps: "8" }, { weight: "16.25", reps: "7" }] },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "16", reps: "8" }, { weight: "16", reps: "8" }] },
+          { name: "Hip Thrust", sets: [{ weight: "27.5", reps: "8" }, { weight: "27.5", reps: "8" }] },
+          { name: "Seated Leg Curl", sets: [{ weight: "36", reps: "12" }, { weight: "36", reps: "12" }] }
+        ]
+      },
+      {
+        id: 1724630400000, date: "2026-08-26", day: "Day 2",
+        exercises: [
+          { name: "Cable Row", sets: [{ weight: "43", reps: "6" }, { weight: "43", reps: "7" }, { weight: "43", reps: "8" }] },
+          { name: "Dumbbell Press", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "9" }, { weight: "20", reps: "7" }] },
+          { name: "Quad-Biased Split Squat", sets: [{ weight: "12.5", reps: "10" }, { weight: "12.5", reps: "10" }] },
+          { name: "Chest Fly", sets: [{ weight: "27.5", reps: "12" }, { weight: "27.5", reps: "12" }, { weight: "27.5", reps: "12" }] },
+          { name: "Leg Press", sets: [{ weight: "30", reps: "10" }, { weight: "30", reps: "10" }] },
+          { name: "Triceps Rope Pushdown", sets: [{ weight: "23", reps: "12" }, { weight: "23", reps: "11" }, { weight: "25", reps: "8" }] }
+        ]
+      },
+      {
+        id: 1724457600000, date: "2026-08-24", day: "Day 1",
+        exercises: [
+          { name: "Lat Pulldown", sets: [{ weight: "43", reps: "10" }, { weight: "43", reps: "10" }, { weight: "43", reps: "10" }] },
+          { name: "Machine Shoulder Press", sets: [{ weight: "15", reps: "12" }, { weight: "15", reps: "10" }, { weight: "15", reps: "9" }] },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "15", reps: "8" }, { weight: "15", reps: "8" }] },
+          { name: "Hip Thrust", sets: [{ weight: "25", reps: "10" }, { weight: "25", reps: "10" }] },
+          { name: "Seated Leg Curl", sets: [{ weight: "36", reps: "12" }, { weight: "36", reps: "12" }] },
+          { name: "Standing Bicep Curl", sets: [{ weight: "7.5", reps: "10" }, { weight: "7.5", reps: "8" }, { weight: "7.5", reps: "6" }] },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "10" }, { weight: "5", reps: "12" }, { weight: "5", reps: "15" }] }
+        ]
+      },
+      {
+        id: 1724198400000, date: "2026-08-21", day: "Day 2",
+        exercises: [
+          { name: "Cable Row", sets: [{ weight: "38", reps: "8" }, { weight: "41", reps: "8" }, { weight: "41", reps: "7" }] },
+          { name: "Dumbbell Press", sets: [{ weight: "17.5", reps: "10" }, { weight: "17.5", reps: "10" }, { weight: "17.5", reps: "10" }] },
+          { name: "Quad-Biased Split Squat", sets: [{ weight: "10", reps: "10" }, { weight: "10", reps: "10" }] },
+          { name: "Chest Fly", sets: [{ weight: "23", reps: "15" }, { weight: "23", reps: "15" }, { weight: "25", reps: "15" }] },
+          { name: "Leg Press", sets: [{ weight: "20", reps: "10" }, { weight: "25", reps: "10" }] },
+          { name: "Triceps Rope Pushdown", sets: [{ weight: "20", reps: "12" }, { weight: "20", reps: "12" }, { weight: "23", reps: "10" }] }
+        ]
+      },
+      {
+        id: 1723939200000, date: "2026-08-18", day: "Day 1",
+        exercises: [
+          { name: "Lat Pulldown", sets: [{ weight: "41", reps: "10" }, { weight: "41", reps: "10" }, { weight: "43", reps: "8" }] },
+          { name: "Machine Shoulder Press", sets: [{ weight: "12.5", reps: "10" }, { weight: "12.5", reps: "10" }, { weight: "12.5", reps: "10" }] },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "12.5", reps: "8" }, { weight: "12.5", reps: "8" }] },
+          { name: "Hip Thrust", sets: [{ weight: "20", reps: "10" }, { weight: "25", reps: "10" }] },
+          { name: "Seated Leg Curl", sets: [{ weight: "36", reps: "10" }, { weight: "36", reps: "10" }] },
+          { name: "Standing Bicep Curl", sets: [{ weight: "6", reps: "12" }, { weight: "6", reps: "12" }, { weight: "6", reps: "12" }] },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "12" }, { weight: "5", reps: "12" }, { weight: "5", reps: "12" }] }
+        ]
+      },
+      {
+        id: 1723507200000, date: "2026-08-13", day: "Day 2",
+        exercises: [
+          { name: "Cable Row", sets: [{ weight: "38", reps: "8" }, { weight: "38", reps: "8" }, { weight: "38", reps: "8" }] },
+          { name: "Dumbbell Press", sets: [{ weight: "17.5", reps: "10" }, { weight: "17.5", reps: "9" }, { weight: "17.5", reps: "9" }] },
+          { name: "Quad-Biased Split Squat", sets: [{ weight: "10", reps: "10" }, { weight: "10", reps: "10" }] },
+          { name: "Chest Fly", sets: [{ weight: "23", reps: "15" }, { weight: "23", reps: "15" }, { weight: "25", reps: "15" }] },
+          { name: "Leg Press", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "10" }] },
+          { name: "Triceps Rope Pushdown", sets: [{ weight: "20", reps: "12" }, { weight: "20", reps: "12" }, { weight: "20", reps: "8" }] }
+        ]
+      },
+      {
+        id: 1723334400000, date: "2026-08-11", day: "Day 1",
+        exercises: [
+          { name: "Lat Pulldown", sets: [{ weight: "41", reps: "10" }, { weight: "41", reps: "10" }, { weight: "41", reps: "10" }] },
+          { name: "Machine Shoulder Press", sets: [{ weight: "12.5", reps: "10" }, { weight: "12.5", reps: "9" }, { weight: "12.5", reps: "9" }] },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "20", reps: "8" }, { weight: "20", reps: "8" }] },
+          { name: "Hip Thrust", sets: [{ weight: "25", reps: "10" }, { weight: "25", reps: "10" }] },
+          { name: "Seated Leg Curl", sets: [{ weight: "34", reps: "12" }, { weight: "34", reps: "12" }] },
+          { name: "Standing Bicep Curl", sets: [{ weight: "6", reps: "12" }, { weight: "6", reps: "12" }] },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "15" }, { weight: "5", reps: "14" }, { weight: "5", reps: "13" }] }
+        ]
+      },
+      {
+        id: 1723161600000, date: "2026-08-09", day: "Day 2",
+        exercises: [
+          { name: "Cable Row", sets: [{ weight: "38", reps: "7" }, { weight: "38", reps: "7" }, { weight: "38", reps: "7" }] },
+          { name: "Dumbbell Press", sets: [{ weight: "17.5", reps: "8" }, { weight: "17.5", reps: "8" }, { weight: "17.5", reps: "10" }] },
+          { name: "Quad-Biased Split Squat", sets: [{ weight: "10", reps: "8" }, { weight: "10", reps: "10" }] },
+          { name: "Chest Fly", sets: [{ weight: "25", reps: "15" }, { weight: "20", reps: "15" }, { weight: "20", reps: "15" }] },
+          { name: "Leg Press", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "10" }] },
+          { name: "Triceps Rope Pushdown", sets: [{ weight: "20", reps: "15" }, { weight: "20", reps: "11" }, { weight: "20", reps: "6" }] }
+        ]
+      },
+      {
+        id: 1722988800000, date: "2026-08-07", day: "Day 1",
+        exercises: [
+          { name: "Lat Pulldown", sets: [{ weight: "41", reps: "10" }, { weight: "41", reps: "9" }, { weight: "41", reps: "9" }] },
+          { name: "Dumbbell Shoulder Press", sets: [{ weight: "10", reps: "10" }, { weight: "10", reps: "10" }, { weight: "10", reps: "10" }] },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "15", reps: "10" }, { weight: "15", reps: "10" }] },
+          { name: "Hip Thrust", sets: [{ weight: "22.5", reps: "10" }, { weight: "22.5", reps: "10" }] },
+          { name: "Seated Leg Curl", sets: [{ weight: "32", reps: "12" }, { weight: "32", reps: "12" }] },
+          { name: "Incline Bicep Curl", sets: [{ weight: "5", reps: "12" }, { weight: "5", reps: "12" }, { weight: "5", reps: "12" }] },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "15" }, { weight: "5", reps: "14" }, { weight: "5", reps: "13" }] }
+        ]
+      },
+      {
+        id: 1722816000000, date: "2026-08-05", day: "Day 2",
+        exercises: [
+          { name: "Cable Row", sets: [{ weight: "36", reps: "8" }, { weight: "36", reps: "8" }, { weight: "36", reps: "10" }] },
+          { name: "Dumbbell Press", sets: [{ weight: "15", reps: "10" }, { weight: "15", reps: "10" }, { weight: "15", reps: "10" }] },
+          { name: "Quad-Biased Split Squat", sets: [{ weight: "7.5", reps: "10" }, { weight: "7.5", reps: "10" }] },
+          { name: "Chest Fly", sets: [{ weight: "25", reps: "15" }, { weight: "20", reps: "15" }, { weight: "20", reps: "15" }] },
+          { name: "Leg Press", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "10" }] },
+          { name: "Triceps Rope Pushdown", sets: [{ weight: "20", reps: "15" }, { weight: "20", reps: "11" }, { weight: "20", reps: "6" }] }
+        ]
+      },
+      {
+        id: 1722643200000, date: "2026-08-03", day: "Day 1",
+        exercises: [
+          { name: "Lat Pulldown", sets: [{ weight: "38", reps: "10" }, { weight: "38", reps: "10" }, { weight: "38", reps: "10" }] },
+          { name: "Machine Shoulder Press", sets: [{ weight: "11.25", reps: "10" }, { weight: "11.25", reps: "10" }, { weight: "11.25", reps: "10" }] },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "15", reps: "10" }, { weight: "15", reps: "10" }] },
+          { name: "Hip Thrust", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "10" }] },
+          { name: "Seated Leg Curl", sets: [{ weight: "27", reps: "15" }, { weight: "29", reps: "15" }] },
+          { name: "Bicep Curl", sets: [{ weight: "6", reps: "12" }, { weight: "6", reps: "12" }, { weight: "6", reps: "12" }] },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "15" }, { weight: "5", reps: "15" }, { weight: "5", reps: "14" }] }
+        ]
+      },
+      {
+        id: 1722384000000, date: "2026-07-31", day: "Day 2",
+        exercises: [
+          { name: "Cable Row", sets: [{ weight: "32", reps: "10" }, { weight: "34", reps: "10" }, { weight: "36", reps: "7" }] },
+          { name: "Dumbbell Press", sets: [{ weight: "12.5", reps: "10" }, { weight: "12.5", reps: "10" }, { weight: "12.5", reps: "14" }] },
+          { name: "Quad-Biased Split Squat", sets: [{ weight: "10", reps: "10" }, { weight: "10", reps: "10" }] },
+          { name: "Triceps Rope Pushdown", sets: [{ weight: "18", reps: "15" }, { weight: "18", reps: "15" }, { weight: "18", reps: "10" }] },
+          { name: "Chest Fly", sets: [{ weight: "25", reps: "15" }, { weight: "25", reps: "13" }, { weight: "25", reps: "10" }] },
+          { name: "Hack Squat", sets: [{ weight: "0", reps: "10" }, { weight: "0", reps: "10" }] }
+        ]
+      },
+      {
+        id: 1722211200000, date: "2026-07-29", day: "Day 1",
+        exercises: [
+          { name: "Lat Pulldown", sets: [{ weight: "36", reps: "8" }, { weight: "36", reps: "10" }, { weight: "38", reps: "10" }] },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "10", reps: "10" }, { weight: "12", reps: "12" }] },
+          { name: "Machine Shoulder Press", sets: [{ weight: "10", reps: "10" }, { weight: "11.25", reps: "8" }, { weight: "11.25", reps: "10" }] },
+          { name: "Hip Thrust", sets: [{ weight: "15", reps: "12" }, { weight: "17.5", reps: "12" }] },
+          { name: "Seated Leg Curl", sets: [{ weight: "25", reps: "12" }, { weight: "25", reps: "15" }] },
+          { name: "Bicep Curl", sets: [{ weight: "6", reps: "12" }, { weight: "6", reps: "12" }, { weight: "6", reps: "12" }] },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "12" }, { weight: "5", reps: "14" }] }
+        ]
+      }
+    ];
 
     let currentView = "day1";
     let state = JSON.parse(localStorage.getItem("tracker_state") || "null");
 
-    if (!state) {
+    // Version migration to seamlessly load historical data into Safari
+    if (!state || state.version !== APP_VERSION) {
       state = {
+        version: APP_VERSION,
         templates: JSON.parse(JSON.stringify(defaultTemplates)),
         active: { day1: [], day2: [] },
-        history: []
+        history: initialHistory
       };
       initActiveSets("day1");
       initActiveSets("day2");
@@ -187,13 +410,27 @@
     function initActiveSets(day) {
       state.active[day] = state.templates[day].map(ex => ({
         name: ex.name,
+        originalName: ex.name,
         target: ex.target,
+        showSwap: false,
         sets: Array.from({ length: ex.sets || 3 }, () => ({ weight: "", reps: "", done: false }))
       }));
     }
 
     function saveState() {
       localStorage.setItem("tracker_state", JSON.stringify(state));
+    }
+
+    // Helper: Finds the latest weight logged for any exercise across past history
+    function findLatestWeight(exerciseName) {
+      for (const session of state.history) {
+        const found = session.exercises.find(e => e.name.toLowerCase() === exerciseName.toLowerCase());
+        if (found && found.sets.length > 0) {
+          const lastSet = found.sets[found.sets.length - 1];
+          return { weight: lastSet.weight, reps: lastSet.reps };
+        }
+      }
+      return null;
     }
 
     function setView(view) {
@@ -218,35 +455,70 @@
       const exercises = state.active[currentView];
 
       exercises.forEach((ex, exIdx) => {
-        const tpl = state.templates[currentView].find(t => t.name === ex.name) || {};
-        const baseWeight = parseFloat(ex.sets[0]?.weight) || parseFloat(tpl.lastWeight) || 0;
+        const tpl = state.templates[currentView].find(t => t.name === ex.originalName) || {};
+        const isSwapped = ex.name !== ex.originalName;
+
+        // Determine placeholder baseline
+        let phWeight = "";
+        let phReps = "";
+        const historicalMatch = findLatestWeight(ex.name);
+        if (historicalMatch) {
+          phWeight = `${historicalMatch.weight} kg`;
+          phReps = `${historicalMatch.reps}`;
+        } else if (!isSwapped && tpl.lastWeight !== undefined) {
+          phWeight = `${tpl.lastWeight} kg`;
+          phReps = `${tpl.lastReps}`;
+        } else {
+          phWeight = "kg";
+          phReps = "reps";
+        }
+
+        // Compute warm-up sets based on active working weight or previous best
+        const baseWeight = parseFloat(ex.sets[0]?.weight) || parseFloat(historicalMatch?.weight) || (isSwapped ? 0 : parseFloat(tpl.lastWeight)) || 0;
         const w1 = (baseWeight * 0.5).toFixed(1).replace(/\.0$/, '');
         const w2 = (baseWeight * 0.8).toFixed(1).replace(/\.0$/, '');
 
         const card = document.createElement("div");
         card.className = "card";
 
-        let setsHTML = ex.sets.map((set, sIdx) => {
-          const phWeight = tpl.lastWeight !== undefined ? `${tpl.lastWeight} kg` : "kg";
-          const phReps = tpl.lastReps !== undefined ? `${tpl.lastReps}` : "reps";
-          return `
-            <div class="set-row">
-              <span class="set-label">S${sIdx + 1}</span>
-              <input type="number" step="any" inputmode="decimal" placeholder="${phWeight}" value="${set.weight}" 
-                     oninput="updateSet(${exIdx}, ${sIdx}, 'weight', this.value)">
-              <input type="number" inputmode="numeric" placeholder="${phReps}" value="${set.reps}" 
-                     oninput="updateSet(${exIdx}, ${sIdx}, 'reps', this.value)">
-              <button class="btn-check ${set.done ? 'done' : ''}" onclick="toggleDone(${exIdx}, ${sIdx})">✓</button>
-              <button class="btn-del" onclick="deleteSet(${exIdx}, ${sIdx})">✕</button>
-            </div>
-          `;
-        }).join("");
+        // Build swap dropdown list
+        const optionsList = (swapCatalog[ex.originalName] || []).concat(["+ Custom Exercise...", `↺ Revert to ${ex.originalName}`]);
+        let optionsHTML = optionsList.map(opt => `<option value="${opt}">${opt}</option>`).join("");
+
+        let swapPanelHTML = ex.showSwap ? `
+          <div class="swap-panel">
+            <select class="swap-select" onchange="executeSwap(${exIdx}, this.value)">
+              <option value="" disabled selected>Select alternative equipment...</option>
+              ${optionsHTML}
+            </select>
+            <button class="btn-del" onclick="toggleSwap(${exIdx})">✕</button>
+          </div>
+        ` : '';
+
+        let setsHTML = ex.sets.map((set, sIdx) => `
+          <div class="set-row">
+            <span class="set-label">S${sIdx + 1}</span>
+            <input type="number" step="any" inputmode="decimal" placeholder="${phWeight}" value="${set.weight}" 
+                   oninput="updateSet(${exIdx}, ${sIdx}, 'weight', this.value)">
+            <input type="number" inputmode="numeric" placeholder="${phReps}" value="${set.reps}" 
+                   oninput="updateSet(${exIdx}, ${sIdx}, 'reps', this.value)">
+            <button class="btn-check ${set.done ? 'done' : ''}" onclick="toggleDone(${exIdx}, ${sIdx})">✓</button>
+            <button class="btn-del" onclick="deleteSet(${exIdx}, ${sIdx})">✕</button>
+          </div>
+        `).join("");
 
         card.innerHTML = `
           <div class="card-header">
-            <span class="card-title">${ex.name}</span>
-            <span class="card-target">${ex.target || ''}</span>
+            <div class="card-title-group">
+              <span class="card-title">${ex.name}</span>
+              ${isSwapped ? '<span class="card-badge">Swapped</span>' : ''}
+            </div>
+            <div class="card-controls">
+              <span class="card-target">${ex.target || ''}</span>
+              <button class="btn-swap-toggle" onclick="toggleSwap(${exIdx})">⇄ Swap</button>
+            </div>
           </div>
+          ${swapPanelHTML}
           ${baseWeight > 0 ? `
             <div class="warmup-box">
               <span>Warm-up 1 (50%): <strong>${w1} kg</strong></span>
@@ -258,6 +530,27 @@
         `;
         container.appendChild(card);
       });
+    }
+
+    function toggleSwap(exIdx) {
+      const ex = state.active[currentView][exIdx];
+      ex.showSwap = !ex.showSwap;
+      renderWorkout();
+    }
+
+    function executeSwap(exIdx, chosen) {
+      const ex = state.active[currentView][exIdx];
+      if (chosen.startsWith("↺ Revert")) {
+        ex.name = ex.originalName;
+      } else if (chosen === "+ Custom Exercise...") {
+        const customName = prompt("Enter replacement machine/exercise:");
+        if (customName) ex.name = customName.trim();
+      } else {
+        ex.name = chosen;
+      }
+      ex.showSwap = false;
+      saveState();
+      renderWorkout();
     }
 
     function updateSet(exIdx, sIdx, field, val) {
@@ -300,7 +593,9 @@
       state.templates[currentView].push({ name, target, sets: 3 });
       state.active[currentView].push({
         name,
+        originalName: name,
         target,
+        showSwap: false,
         sets: [{ weight: "", reps: "", done: false }]
       });
       saveState();
@@ -319,8 +614,8 @@
             name: ex.name,
             sets: filledSets.map(s => ({ weight: s.weight, reps: s.reps }))
           });
-          const tpl = state.templates[currentView].find(t => t.name === ex.name);
-          if (tpl) {
+          const tpl = state.templates[currentView].find(t => t.name === ex.originalName);
+          if (tpl && ex.name === ex.originalName) {
             tpl.lastWeight = filledSets[filledSets.length - 1].weight;
             tpl.lastReps = filledSets[filledSets.length - 1].reps;
           }
@@ -339,6 +634,7 @@
         exercises: completedExercises
       });
 
+      // Reset active session to original routine templates (reverting any temporary swaps)
       initActiveSets(currentView);
       saveState();
       alert("Workout archived! Inputs refreshed for your next session.");
