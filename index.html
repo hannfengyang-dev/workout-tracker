@@ -27,7 +27,7 @@
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-      padding: env(safe-area-inset-top, 24px) 16px calc(env(safe-area-inset-bottom, 24px) + 24px);
+      padding: env(safe-area-inset-top, 24px) 16px calc(env(safe-area-inset-bottom, 24px) + 80px);
     }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     h1 { margin: 0; font-size: 22px; font-weight: 700; }
@@ -61,8 +61,15 @@
       border-radius: 4px;
       font-weight: 600;
     }
-    .card-controls { display: flex; align-items: center; gap: 6px; }
-    .card-target { font-size: 12px; color: var(--muted); }
+    .card-meta { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+    .rest-badge {
+      background: rgba(10, 132, 255, 0.15);
+      color: var(--accent);
+      padding: 3px 6px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
     .btn-swap-toggle {
       background: var(--card-alt);
       border: 1px solid var(--border);
@@ -121,6 +128,13 @@
     }
     input::placeholder { color: #636366; font-size: 14px; }
     input:focus { outline: none; border-color: var(--accent); }
+    .remarks-input {
+      margin-top: 8px;
+      text-align: left;
+      padding: 8px 10px;
+      font-size: 13px;
+      border-color: #2c2c2e;
+    }
     .btn-check {
       background: var(--card-alt);
       border: none;
@@ -162,10 +176,42 @@
     }
     .history-month { font-size: 16px; font-weight: 700; color: var(--accent); margin: 18px 0 8px; }
     .history-item { background: var(--card); border-radius: 10px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); }
-    .history-item-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
-    .history-row { font-size: 13px; color: var(--muted); margin-bottom: 3px; }
+    .history-item-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+    .history-actions { display: flex; gap: 8px; }
+    .history-row { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    .history-remarks { font-size: 12px; color: #ffd60a; margin-top: 2px; margin-bottom: 6px; font-style: italic; }
+    .btn-edit { background: transparent; border: none; color: var(--accent); font-size: 13px; font-weight: 600; }
     .btn-export { background: var(--card); border: 1px solid var(--border); color: var(--accent); padding: 8px 12px; border-radius: 8px; font-size: 12px; }
     .btn-clear-all { background: var(--card); border: 1px solid var(--border); color: var(--red); padding: 8px 12px; border-radius: 8px; font-size: 12px; }
+
+    /* Floating Rest Timer Bar */
+    #rest-timer-bar {
+      position: fixed;
+      bottom: calc(env(safe-area-inset-bottom, 16px) + 12px);
+      left: 16px;
+      right: 16px;
+      background: #1c1c1e;
+      border: 1px solid var(--accent);
+      border-radius: 14px;
+      padding: 10px 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 1000;
+    }
+    .timer-info { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+    .timer-val { font-size: 20px; font-variant-numeric: tabular-nums; color: var(--accent); }
+    .timer-btns { display: flex; gap: 6px; }
+    .timer-btn {
+      background: var(--card-alt);
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -192,8 +238,20 @@
 
   <div id="history-view" style="display: none;"></div>
 
+  <!-- Floating Rest Timer Dock -->
+  <div id="rest-timer-bar">
+    <div class="timer-info">
+      <span>⏱️ Rest:</span>
+      <span class="timer-val" id="timer-display">02:00</span>
+    </div>
+    <div class="timer-btns">
+      <button class="timer-btn" onclick="adjustRestTimer(30)">+30s</button>
+      <button class="timer-btn" style="color: var(--red);" onclick="stopRestTimer()">Skip ✕</button>
+    </div>
+  </div>
+
   <script>
-    const APP_VERSION = "v3_history_delete";
+    const APP_VERSION = "v4_rest_remarks_edit";
 
     const swapCatalog = {
       "Lat Pulldown": ["Machine High Row", "Cable Pullover", "Neutral Grip Pulldown", "Assisted Pull-up"],
@@ -213,21 +271,21 @@
 
     const defaultTemplates = {
       day1: [
-        { name: "Lat Pulldown", target: "8-10 reps", lastWeight: 45, lastReps: 10, sets: 3 },
-        { name: "Machine Shoulder Press", target: "8-10 reps", lastWeight: 16.25, lastReps: 10, sets: 3 },
-        { name: "Hip-Dominant Split Squat", target: "6-8 reps", lastWeight: 16, lastReps: 8, sets: 2 },
-        { name: "Hip Thrust", target: "8-10 reps", lastWeight: 27.5, lastReps: 10, sets: 2 },
-        { name: "Seated Leg Curl", target: "10-12 reps", lastWeight: 38, lastReps: 10, sets: 2 },
-        { name: "Standing Bicep Curl", target: "10-12 reps", lastWeight: 7.5, lastReps: 10, sets: 3 },
-        { name: "Lateral Raises", target: "12-15 reps", lastWeight: 5, lastReps: 15, sets: 3 }
+        { name: "Lat Pulldown", target: "8-10 reps", restSec: 120, lastWeight: 45, lastReps: 10, sets: 3 },
+        { name: "Machine Shoulder Press", target: "8-10 reps", restSec: 120, lastWeight: 16.25, lastReps: 10, sets: 3 },
+        { name: "Hip-Dominant Split Squat", target: "6-8 reps", restSec: 135, lastWeight: 16, lastReps: 8, sets: 2 },
+        { name: "Hip Thrust", target: "8-10 reps", restSec: 135, lastWeight: 27.5, lastReps: 10, sets: 2 },
+        { name: "Seated Leg Curl", target: "10-12 reps", restSec: 105, lastWeight: 38, lastReps: 10, sets: 2 },
+        { name: "Standing Bicep Curl", target: "10-12 reps", restSec: 90, lastWeight: 7.5, lastReps: 10, sets: 3 },
+        { name: "Lateral Raises", target: "12-15 reps", restSec: 75, lastWeight: 5, lastReps: 15, sets: 3 }
       ],
       day2: [
-        { name: "Cable Row", target: "6-8 reps", lastWeight: 43, lastReps: 8, sets: 3 },
-        { name: "Dumbbell Press", target: "8-10 reps", lastWeight: 20, lastReps: 10, sets: 3 },
-        { name: "Quad-Biased Split Squat", target: "8-10 reps", lastWeight: 12.5, lastReps: 10, sets: 2 },
-        { name: "Chest Fly", target: "12-15 reps", lastWeight: 27.5, lastReps: 12, sets: 3 },
-        { name: "Leg Press", target: "8-10 reps", lastWeight: 30, lastReps: 10, sets: 2 },
-        { name: "Triceps Rope Pushdown", target: "10-12 reps", lastWeight: 25, lastReps: 8, sets: 3 }
+        { name: "Cable Row", target: "6-8 reps", restSec: 165, lastWeight: 43, lastReps: 8, sets: 3 },
+        { name: "Dumbbell Press", target: "8-10 reps", restSec: 120, lastWeight: 20, lastReps: 10, sets: 3 },
+        { name: "Quad-Biased Split Squat", target: "8-10 reps", restSec: 120, lastWeight: 12.5, lastReps: 10, sets: 2 },
+        { name: "Chest Fly", target: "12-15 reps", restSec: 120, lastWeight: 27.5, lastReps: 12, sets: 3 },
+        { name: "Leg Press", target: "8-10 reps", restSec: 180, lastWeight: 30, lastReps: 10, sets: 2 },
+        { name: "Triceps Rope Pushdown", target: "10-12 reps", restSec: 90, lastWeight: 25, lastReps: 8, sets: 3 }
       ]
     };
 
@@ -235,167 +293,172 @@
       {
         id: 1725667200000, date: "2026-09-07", day: "Day 1",
         exercises: [
-          { name: "Lat Pulldown", sets: [{ weight: "45", reps: "10" }, { weight: "45", reps: "10" }, { weight: "45", reps: "9" }] },
-          { name: "Machine Shoulder Press", sets: [{ weight: "16.25", reps: "10" }, { weight: "16.25", reps: "8" }, { weight: "16.25", reps: "7" }] },
-          { name: "Hip-Dominant Split Squat", sets: [{ weight: "16", reps: "8" }, { weight: "16", reps: "8" }] },
-          { name: "Hip Thrust", sets: [{ weight: "27.5", reps: "10" }, { weight: "27.5", reps: "10" }] },
-          { name: "Seated Leg Curl", sets: [{ weight: "38", reps: "10" }, { weight: "38", reps: "10" }] },
-          { name: "Standing Bicep Curl", sets: [{ weight: "7.5", reps: "10" }, { weight: "7.5", reps: "8" }, { weight: "7.5", reps: "7" }] },
-          { name: "Lateral Raises", sets: [{ weight: "5", reps: "15" }, { weight: "5", reps: "15" }, { weight: "5", reps: "15" }] }
+          { name: "Lat Pulldown", sets: [{ weight: "45", reps: "10" }, { weight: "45", reps: "10" }, { weight: "45", reps: "9" }], remarks: "" },
+          { name: "Machine Shoulder Press", sets: [{ weight: "16.25", reps: "10" }, { weight: "16.25", reps: "8" }, { weight: "16.25", reps: "7" }], remarks: "" },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "16", reps: "8" }, { weight: "16", reps: "8" }], remarks: "" },
+          { name: "Hip Thrust", sets: [{ weight: "27.5", reps: "10" }, { weight: "27.5", reps: "10" }], remarks: "" },
+          { name: "Seated Leg Curl", sets: [{ weight: "38", reps: "10" }, { weight: "38", reps: "10" }], remarks: "" },
+          { name: "Standing Bicep Curl", sets: [{ weight: "7.5", reps: "10" }, { weight: "7.5", reps: "8" }, { weight: "7.5", reps: "7" }], remarks: "" },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "15" }, { weight: "5", reps: "15" }, { weight: "5", reps: "15" }], remarks: "" }
         ]
       },
       {
         id: 1725148800000, date: "2026-09-01", day: "Day 1",
         exercises: [
-          { name: "Lat Pulldown", sets: [{ weight: "45", reps: "8" }, { weight: "45", reps: "8" }, { weight: "45", reps: "9" }] },
-          { name: "Machine Shoulder Press", sets: [{ weight: "16.25", reps: "8" }, { weight: "16.25", reps: "8" }, { weight: "16.25", reps: "7" }] },
-          { name: "Hip-Dominant Split Squat", sets: [{ weight: "16", reps: "8" }, { weight: "16", reps: "8" }] },
-          { name: "Hip Thrust", sets: [{ weight: "27.5", reps: "8" }, { weight: "27.5", reps: "8" }] },
-          { name: "Seated Leg Curl", sets: [{ weight: "36", reps: "12" }, { weight: "36", reps: "12" }] }
+          { name: "Lat Pulldown", sets: [{ weight: "45", reps: "8" }, { weight: "45", reps: "8" }, { weight: "45", reps: "9" }], remarks: "" },
+          { name: "Machine Shoulder Press", sets: [{ weight: "16.25", reps: "8" }, { weight: "16.25", reps: "8" }, { weight: "16.25", reps: "7" }], remarks: "" },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "16", reps: "8" }, { weight: "16", reps: "8" }], remarks: "" },
+          { name: "Hip Thrust", sets: [{ weight: "27.5", reps: "8" }, { weight: "27.5", reps: "8" }], remarks: "" },
+          { name: "Seated Leg Curl", sets: [{ weight: "36", reps: "12" }, { weight: "36", reps: "12" }], remarks: "not enough energy" }
         ]
       },
       {
         id: 1724630400000, date: "2026-08-26", day: "Day 2",
         exercises: [
-          { name: "Cable Row", sets: [{ weight: "43", reps: "6" }, { weight: "43", reps: "7" }, { weight: "43", reps: "8" }] },
-          { name: "Dumbbell Press", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "9" }, { weight: "20", reps: "7" }] },
-          { name: "Quad-Biased Split Squat", sets: [{ weight: "12.5", reps: "10" }, { weight: "12.5", reps: "10" }] },
-          { name: "Chest Fly", sets: [{ weight: "27.5", reps: "12" }, { weight: "27.5", reps: "12" }, { weight: "27.5", reps: "12" }] },
-          { name: "Leg Press", sets: [{ weight: "30", reps: "10" }, { weight: "30", reps: "10" }] },
-          { name: "Triceps Rope Pushdown", sets: [{ weight: "23", reps: "12" }, { weight: "23", reps: "11" }, { weight: "25", reps: "8" }] }
+          { name: "Cable Row", sets: [{ weight: "43", reps: "6" }, { weight: "43", reps: "7" }, { weight: "43", reps: "8" }], remarks: "machine rows last set 39kg @ 6reps" },
+          { name: "Dumbbell Press", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "9" }, { weight: "20", reps: "7" }], remarks: "" },
+          { name: "Quad-Biased Split Squat", sets: [{ weight: "12.5", reps: "10" }, { weight: "12.5", reps: "10" }], remarks: "" },
+          { name: "Chest Fly", sets: [{ weight: "27.5", reps: "12" }, { weight: "27.5", reps: "12" }, { weight: "27.5", reps: "12" }], remarks: "" },
+          { name: "Leg Press", sets: [{ weight: "30", reps: "10" }, { weight: "30", reps: "10" }], remarks: "V squat 10 x 2 @15kg" },
+          { name: "Triceps Rope Pushdown", sets: [{ weight: "23", reps: "12" }, { weight: "23", reps: "11" }, { weight: "25", reps: "8" }], remarks: "" }
         ]
       },
       {
         id: 1724457600000, date: "2026-08-24", day: "Day 1",
         exercises: [
-          { name: "Lat Pulldown", sets: [{ weight: "43", reps: "10" }, { weight: "43", reps: "10" }, { weight: "43", reps: "10" }] },
-          { name: "Machine Shoulder Press", sets: [{ weight: "15", reps: "12" }, { weight: "15", reps: "10" }, { weight: "15", reps: "9" }] },
-          { name: "Hip-Dominant Split Squat", sets: [{ weight: "15", reps: "8" }, { weight: "15", reps: "8" }] },
-          { name: "Hip Thrust", sets: [{ weight: "25", reps: "10" }, { weight: "25", reps: "10" }] },
-          { name: "Seated Leg Curl", sets: [{ weight: "36", reps: "12" }, { weight: "36", reps: "12" }] },
-          { name: "Standing Bicep Curl", sets: [{ weight: "7.5", reps: "10" }, { weight: "7.5", reps: "8" }, { weight: "7.5", reps: "6" }] },
-          { name: "Lateral Raises", sets: [{ weight: "5", reps: "10" }, { weight: "5", reps: "12" }, { weight: "5", reps: "15" }] }
+          { name: "Lat Pulldown", sets: [{ weight: "43", reps: "10" }, { weight: "43", reps: "10" }, { weight: "43", reps: "10" }], remarks: "" },
+          { name: "Machine Shoulder Press", sets: [{ weight: "15", reps: "12" }, { weight: "15", reps: "10" }, { weight: "15", reps: "9" }], remarks: "" },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "15", reps: "8" }, { weight: "15", reps: "8" }], remarks: "" },
+          { name: "Hip Thrust", sets: [{ weight: "25", reps: "10" }, { weight: "25", reps: "10" }], remarks: "" },
+          { name: "Seated Leg Curl", sets: [{ weight: "36", reps: "12" }, { weight: "36", reps: "12" }], remarks: "" },
+          { name: "Standing Bicep Curl", sets: [{ weight: "7.5", reps: "10" }, { weight: "7.5", reps: "8" }, { weight: "7.5", reps: "6" }], remarks: "" },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "10" }, { weight: "5", reps: "12" }, { weight: "5", reps: "15" }], remarks: "" }
         ]
       },
       {
         id: 1724198400000, date: "2026-08-21", day: "Day 2",
         exercises: [
-          { name: "Cable Row", sets: [{ weight: "38", reps: "8" }, { weight: "41", reps: "8" }, { weight: "41", reps: "7" }] },
-          { name: "Dumbbell Press", sets: [{ weight: "17.5", reps: "10" }, { weight: "17.5", reps: "10" }, { weight: "17.5", reps: "10" }] },
-          { name: "Quad-Biased Split Squat", sets: [{ weight: "10", reps: "10" }, { weight: "10", reps: "10" }] },
-          { name: "Chest Fly", sets: [{ weight: "23", reps: "15" }, { weight: "23", reps: "15" }, { weight: "25", reps: "15" }] },
-          { name: "Leg Press", sets: [{ weight: "20", reps: "10" }, { weight: "25", reps: "10" }] },
-          { name: "Triceps Rope Pushdown", sets: [{ weight: "20", reps: "12" }, { weight: "20", reps: "12" }, { weight: "23", reps: "10" }] }
+          { name: "Cable Row", sets: [{ weight: "38", reps: "8" }, { weight: "41", reps: "8" }, { weight: "41", reps: "7" }], remarks: "" },
+          { name: "Dumbbell Press", sets: [{ weight: "17.5", reps: "10" }, { weight: "17.5", reps: "10" }, { weight: "17.5", reps: "10" }], remarks: "" },
+          { name: "Quad-Biased Split Squat", sets: [{ weight: "10", reps: "10" }, { weight: "10", reps: "10" }], remarks: "" },
+          { name: "Chest Fly", sets: [{ weight: "23", reps: "15" }, { weight: "23", reps: "15" }, { weight: "25", reps: "15" }], remarks: "" },
+          { name: "Leg Press", sets: [{ weight: "20", reps: "10" }, { weight: "25", reps: "10" }], remarks: "" },
+          { name: "Triceps Rope Pushdown", sets: [{ weight: "20", reps: "12" }, { weight: "20", reps: "12" }, { weight: "23", reps: "10" }], remarks: "" }
         ]
       },
       {
         id: 1723939200000, date: "2026-08-18", day: "Day 1",
         exercises: [
-          { name: "Lat Pulldown", sets: [{ weight: "41", reps: "10" }, { weight: "41", reps: "10" }, { weight: "43", reps: "8" }] },
-          { name: "Machine Shoulder Press", sets: [{ weight: "12.5", reps: "10" }, { weight: "12.5", reps: "10" }, { weight: "12.5", reps: "10" }] },
-          { name: "Hip-Dominant Split Squat", sets: [{ weight: "12.5", reps: "8" }, { weight: "12.5", reps: "8" }] },
-          { name: "Hip Thrust", sets: [{ weight: "20", reps: "10" }, { weight: "25", reps: "10" }] },
-          { name: "Seated Leg Curl", sets: [{ weight: "36", reps: "10" }, { weight: "36", reps: "10" }] },
-          { name: "Standing Bicep Curl", sets: [{ weight: "6", reps: "12" }, { weight: "6", reps: "12" }, { weight: "6", reps: "12" }] },
-          { name: "Lateral Raises", sets: [{ weight: "5", reps: "12" }, { weight: "5", reps: "12" }, { weight: "5", reps: "12" }] }
+          { name: "Lat Pulldown", sets: [{ weight: "41", reps: "10" }, { weight: "41", reps: "10" }, { weight: "43", reps: "8" }], remarks: "" },
+          { name: "Machine Shoulder Press", sets: [{ weight: "12.5", reps: "10" }, { weight: "12.5", reps: "10" }, { weight: "12.5", reps: "10" }], remarks: "" },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "12.5", reps: "8" }, { weight: "12.5", reps: "8" }], remarks: "" },
+          { name: "Hip Thrust", sets: [{ weight: "20", reps: "10" }, { weight: "25", reps: "10" }], remarks: "" },
+          { name: "Seated Leg Curl", sets: [{ weight: "36", reps: "10" }, { weight: "36", reps: "10" }], remarks: "" },
+          { name: "Standing Bicep Curl", sets: [{ weight: "6", reps: "12" }, { weight: "6", reps: "12" }, { weight: "6", reps: "12" }], remarks: "" },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "12" }, { weight: "5", reps: "12" }, { weight: "5", reps: "12" }], remarks: "" }
         ]
       },
       {
         id: 1723507200000, date: "2026-08-13", day: "Day 2",
         exercises: [
-          { name: "Cable Row", sets: [{ weight: "38", reps: "8" }, { weight: "38", reps: "8" }, { weight: "38", reps: "8" }] },
-          { name: "Dumbbell Press", sets: [{ weight: "17.5", reps: "10" }, { weight: "17.5", reps: "9" }, { weight: "17.5", reps: "9" }] },
-          { name: "Quad-Biased Split Squat", sets: [{ weight: "10", reps: "10" }, { weight: "10", reps: "10" }] },
-          { name: "Chest Fly", sets: [{ weight: "23", reps: "15" }, { weight: "23", reps: "15" }, { weight: "25", reps: "15" }] },
-          { name: "Leg Press", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "10" }] },
-          { name: "Triceps Rope Pushdown", sets: [{ weight: "20", reps: "12" }, { weight: "20", reps: "12" }, { weight: "20", reps: "8" }] }
+          { name: "Cable Row", sets: [{ weight: "38", reps: "8" }, { weight: "38", reps: "8" }, { weight: "38", reps: "8" }], remarks: "" },
+          { name: "Dumbbell Press", sets: [{ weight: "17.5", reps: "10" }, { weight: "17.5", reps: "9" }, { weight: "17.5", reps: "9" }], remarks: "" },
+          { name: "Quad-Biased Split Squat", sets: [{ weight: "10", reps: "10" }, { weight: "10", reps: "10" }], remarks: "" },
+          { name: "Chest Fly", sets: [{ weight: "23", reps: "15" }, { weight: "23", reps: "15" }, { weight: "25", reps: "15" }], remarks: "" },
+          { name: "Leg Press", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "10" }], remarks: "" },
+          { name: "Triceps Rope Pushdown", sets: [{ weight: "20", reps: "12" }, { weight: "20", reps: "12" }, { weight: "20", reps: "8" }], remarks: "" }
         ]
       },
       {
         id: 1723334400000, date: "2026-08-11", day: "Day 1",
         exercises: [
-          { name: "Lat Pulldown", sets: [{ weight: "41", reps: "10" }, { weight: "41", reps: "10" }, { weight: "41", reps: "10" }] },
-          { name: "Machine Shoulder Press", sets: [{ weight: "12.5", reps: "10" }, { weight: "12.5", reps: "9" }, { weight: "12.5", reps: "9" }] },
-          { name: "Hip-Dominant Split Squat", sets: [{ weight: "20", reps: "8" }, { weight: "20", reps: "8" }] },
-          { name: "Hip Thrust", sets: [{ weight: "25", reps: "10" }, { weight: "25", reps: "10" }] },
-          { name: "Seated Leg Curl", sets: [{ weight: "34", reps: "12" }, { weight: "34", reps: "12" }] },
-          { name: "Standing Bicep Curl", sets: [{ weight: "6", reps: "12" }, { weight: "6", reps: "12" }] },
-          { name: "Lateral Raises", sets: [{ weight: "5", reps: "15" }, { weight: "5", reps: "14" }, { weight: "5", reps: "13" }] }
+          { name: "Lat Pulldown", sets: [{ weight: "41", reps: "10" }, { weight: "41", reps: "10" }, { weight: "41", reps: "10" }], remarks: "" },
+          { name: "Machine Shoulder Press", sets: [{ weight: "12.5", reps: "10" }, { weight: "12.5", reps: "9" }, { weight: "12.5", reps: "9" }], remarks: "" },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "20", reps: "8" }, { weight: "20", reps: "8" }], remarks: "" },
+          { name: "Hip Thrust", sets: [{ weight: "25", reps: "10" }, { weight: "25", reps: "10" }], remarks: "" },
+          { name: "Seated Leg Curl", sets: [{ weight: "34", reps: "12" }, { weight: "34", reps: "12" }], remarks: "" },
+          { name: "Standing Bicep Curl", sets: [{ weight: "6", reps: "12" }, { weight: "6", reps: "12" }], remarks: "" },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "15" }, { weight: "5", reps: "14" }, { weight: "5", reps: "13" }], remarks: "" }
         ]
       },
       {
         id: 1723161600000, date: "2026-08-09", day: "Day 2",
         exercises: [
-          { name: "Cable Row", sets: [{ weight: "38", reps: "7" }, { weight: "38", reps: "7" }, { weight: "38", reps: "7" }] },
-          { name: "Dumbbell Press", sets: [{ weight: "17.5", reps: "8" }, { weight: "17.5", reps: "8" }, { weight: "17.5", reps: "10" }] },
-          { name: "Quad-Biased Split Squat", sets: [{ weight: "10", reps: "8" }, { weight: "10", reps: "10" }] },
-          { name: "Chest Fly", sets: [{ weight: "25", reps: "15" }, { weight: "20", reps: "15" }, { weight: "20", reps: "15" }] },
-          { name: "Leg Press", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "10" }] },
-          { name: "Triceps Rope Pushdown", sets: [{ weight: "20", reps: "15" }, { weight: "20", reps: "11" }, { weight: "20", reps: "6" }] }
+          { name: "Cable Row", sets: [{ weight: "38", reps: "7" }, { weight: "38", reps: "7" }, { weight: "38", reps: "7" }], remarks: "" },
+          { name: "Dumbbell Press", sets: [{ weight: "17.5", reps: "8" }, { weight: "17.5", reps: "8" }, { weight: "17.5", reps: "10" }], remarks: "" },
+          { name: "Quad-Biased Split Squat", sets: [{ weight: "10", reps: "8" }, { weight: "10", reps: "10" }], remarks: "" },
+          { name: "Chest Fly", sets: [{ weight: "25", reps: "15" }, { weight: "20", reps: "15" }, { weight: "20", reps: "15" }], remarks: "" },
+          { name: "Leg Press", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "10" }], remarks: "" },
+          { name: "Triceps Rope Pushdown", sets: [{ weight: "20", reps: "15" }, { weight: "20", reps: "11" }, { weight: "20", reps: "6" }], remarks: "" }
         ]
       },
       {
         id: 1722988800000, date: "2026-08-07", day: "Day 1",
         exercises: [
-          { name: "Lat Pulldown", sets: [{ weight: "41", reps: "10" }, { weight: "41", reps: "9" }, { weight: "41", reps: "9" }] },
-          { name: "Dumbbell Shoulder Press", sets: [{ weight: "10", reps: "10" }, { weight: "10", reps: "10" }, { weight: "10", reps: "10" }] },
-          { name: "Hip-Dominant Split Squat", sets: [{ weight: "15", reps: "10" }, { weight: "15", reps: "10" }] },
-          { name: "Hip Thrust", sets: [{ weight: "22.5", reps: "10" }, { weight: "22.5", reps: "10" }] },
-          { name: "Seated Leg Curl", sets: [{ weight: "32", reps: "12" }, { weight: "32", reps: "12" }] },
-          { name: "Incline Bicep Curl", sets: [{ weight: "5", reps: "12" }, { weight: "5", reps: "12" }, { weight: "5", reps: "12" }] },
-          { name: "Lateral Raises", sets: [{ weight: "5", reps: "15" }, { weight: "5", reps: "14" }, { weight: "5", reps: "13" }] }
+          { name: "Lat Pulldown", sets: [{ weight: "41", reps: "10" }, { weight: "41", reps: "9" }, { weight: "41", reps: "9" }], remarks: "grips failed first" },
+          { name: "Dumbbell Shoulder Press", sets: [{ weight: "10", reps: "10" }, { weight: "10", reps: "10" }, { weight: "10", reps: "10" }], remarks: "" },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "15", reps: "10" }, { weight: "15", reps: "10" }], remarks: "better muscle connection" },
+          { name: "Hip Thrust", sets: [{ weight: "22.5", reps: "10" }, { weight: "22.5", reps: "10" }], remarks: "" },
+          { name: "Seated Leg Curl", sets: [{ weight: "32", reps: "12" }, { weight: "32", reps: "12" }], remarks: "" },
+          { name: "Incline Bicep Curl", sets: [{ weight: "5", reps: "12" }, { weight: "5", reps: "12" }, { weight: "5", reps: "12" }], remarks: "" },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "15" }, { weight: "5", reps: "14" }, { weight: "5", reps: "13" }], remarks: "" }
         ]
       },
       {
         id: 1722816000000, date: "2026-08-05", day: "Day 2",
         exercises: [
-          { name: "Cable Row", sets: [{ weight: "36", reps: "8" }, { weight: "36", reps: "8" }, { weight: "36", reps: "10" }] },
-          { name: "Dumbbell Press", sets: [{ weight: "15", reps: "10" }, { weight: "15", reps: "10" }, { weight: "15", reps: "10" }] },
-          { name: "Quad-Biased Split Squat", sets: [{ weight: "7.5", reps: "10" }, { weight: "7.5", reps: "10" }] },
-          { name: "Chest Fly", sets: [{ weight: "25", reps: "15" }, { weight: "20", reps: "15" }, { weight: "20", reps: "15" }] },
-          { name: "Leg Press", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "10" }] },
-          { name: "Triceps Rope Pushdown", sets: [{ weight: "20", reps: "15" }, { weight: "20", reps: "11" }, { weight: "20", reps: "6" }] }
+          { name: "Cable Row", sets: [{ weight: "36", reps: "8" }, { weight: "36", reps: "8" }, { weight: "36", reps: "10" }], remarks: "" },
+          { name: "Dumbbell Press", sets: [{ weight: "15", reps: "10" }, { weight: "15", reps: "10" }, { weight: "15", reps: "10" }], remarks: "" },
+          { name: "Quad-Biased Split Squat", sets: [{ weight: "7.5", reps: "10" }, { weight: "7.5", reps: "10" }], remarks: "" },
+          { name: "Chest Fly", sets: [{ weight: "25", reps: "15" }, { weight: "20", reps: "15" }, { weight: "20", reps: "15" }], remarks: "" },
+          { name: "Leg Press", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "10" }], remarks: "" },
+          { name: "Triceps Rope Pushdown", sets: [{ weight: "20", reps: "15" }, { weight: "20", reps: "11" }, { weight: "20", reps: "6" }], remarks: "" }
         ]
       },
       {
         id: 1722643200000, date: "2026-08-03", day: "Day 1",
         exercises: [
-          { name: "Lat Pulldown", sets: [{ weight: "38", reps: "10" }, { weight: "38", reps: "10" }, { weight: "38", reps: "10" }] },
-          { name: "Machine Shoulder Press", sets: [{ weight: "11.25", reps: "10" }, { weight: "11.25", reps: "10" }, { weight: "11.25", reps: "10" }] },
-          { name: "Hip-Dominant Split Squat", sets: [{ weight: "15", reps: "10" }, { weight: "15", reps: "10" }] },
-          { name: "Hip Thrust", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "10" }] },
-          { name: "Seated Leg Curl", sets: [{ weight: "27", reps: "15" }, { weight: "29", reps: "15" }] },
-          { name: "Bicep Curl", sets: [{ weight: "6", reps: "12" }, { weight: "6", reps: "12" }, { weight: "6", reps: "12" }] },
-          { name: "Lateral Raises", sets: [{ weight: "5", reps: "15" }, { weight: "5", reps: "15" }, { weight: "5", reps: "14" }] }
+          { name: "Lat Pulldown", sets: [{ weight: "38", reps: "10" }, { weight: "38", reps: "10" }, { weight: "38", reps: "10" }], remarks: "" },
+          { name: "Machine Shoulder Press", sets: [{ weight: "11.25", reps: "10" }, { weight: "11.25", reps: "10" }, { weight: "11.25", reps: "10" }], remarks: "" },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "15", reps: "10" }, { weight: "15", reps: "10" }], remarks: "" },
+          { name: "Hip Thrust", sets: [{ weight: "20", reps: "10" }, { weight: "20", reps: "10" }], remarks: "" },
+          { name: "Seated Leg Curl", sets: [{ weight: "27", reps: "15" }, { weight: "29", reps: "15" }], remarks: "" },
+          { name: "Bicep Curl", sets: [{ weight: "6", reps: "12" }, { weight: "6", reps: "12" }, { weight: "6", reps: "12" }], remarks: "" },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "15" }, { weight: "5", reps: "15" }, { weight: "5", reps: "14" }], remarks: "" }
         ]
       },
       {
         id: 1722384000000, date: "2026-07-31", day: "Day 2",
         exercises: [
-          { name: "Cable Row", sets: [{ weight: "32", reps: "10" }, { weight: "34", reps: "10" }, { weight: "36", reps: "7" }] },
-          { name: "Dumbbell Press", sets: [{ weight: "12.5", reps: "10" }, { weight: "12.5", reps: "10" }, { weight: "12.5", reps: "14" }] },
-          { name: "Quad-Biased Split Squat", sets: [{ weight: "10", reps: "10" }, { weight: "10", reps: "10" }] },
-          { name: "Triceps Rope Pushdown", sets: [{ weight: "18", reps: "15" }, { weight: "18", reps: "15" }, { weight: "18", reps: "10" }] },
-          { name: "Chest Fly", sets: [{ weight: "25", reps: "15" }, { weight: "25", reps: "13" }, { weight: "25", reps: "10" }] },
-          { name: "Hack Squat", sets: [{ weight: "0", reps: "10" }, { weight: "0", reps: "10" }] }
+          { name: "Cable Row", sets: [{ weight: "32", reps: "10" }, { weight: "34", reps: "10" }, { weight: "36", reps: "7" }], remarks: "" },
+          { name: "Dumbbell Press", sets: [{ weight: "12.5", reps: "10" }, { weight: "12.5", reps: "10" }, { weight: "12.5", reps: "14" }], remarks: "" },
+          { name: "Quad-Biased Split Squat", sets: [{ weight: "10", reps: "10" }, { weight: "10", reps: "10" }], remarks: "" },
+          { name: "Triceps Rope Pushdown", sets: [{ weight: "18", reps: "15" }, { weight: "18", reps: "15" }, { weight: "18", reps: "10" }], remarks: "" },
+          { name: "Chest Fly", sets: [{ weight: "25", reps: "15" }, { weight: "25", reps: "13" }, { weight: "25", reps: "10" }], remarks: "" },
+          { name: "Hack Squat", sets: [{ weight: "0", reps: "10" }, { weight: "0", reps: "10" }], remarks: "" }
         ]
       },
       {
         id: 1722211200000, date: "2026-07-29", day: "Day 1",
         exercises: [
-          { name: "Lat Pulldown", sets: [{ weight: "36", reps: "8" }, { weight: "36", reps: "10" }, { weight: "38", reps: "10" }] },
-          { name: "Hip-Dominant Split Squat", sets: [{ weight: "10", reps: "10" }, { weight: "12", reps: "12" }] },
-          { name: "Machine Shoulder Press", sets: [{ weight: "10", reps: "10" }, { weight: "11.25", reps: "8" }, { weight: "11.25", reps: "10" }] },
-          { name: "Hip Thrust", sets: [{ weight: "15", reps: "12" }, { weight: "17.5", reps: "12" }] },
-          { name: "Seated Leg Curl", sets: [{ weight: "25", reps: "12" }, { weight: "25", reps: "15" }] },
-          { name: "Bicep Curl", sets: [{ weight: "6", reps: "12" }, { weight: "6", reps: "12" }, { weight: "6", reps: "12" }] },
-          { name: "Lateral Raises", sets: [{ weight: "5", reps: "12" }, { weight: "5", reps: "14" }] }
+          { name: "Lat Pulldown", sets: [{ weight: "36", reps: "8" }, { weight: "36", reps: "10" }, { weight: "38", reps: "10" }], remarks: "" },
+          { name: "Hip-Dominant Split Squat", sets: [{ weight: "10", reps: "10" }, { weight: "12", reps: "12" }], remarks: "" },
+          { name: "Machine Shoulder Press", sets: [{ weight: "10", reps: "10" }, { weight: "11.25", reps: "8" }, { weight: "11.25", reps: "10" }], remarks: "" },
+          { name: "Hip Thrust", sets: [{ weight: "15", reps: "12" }, { weight: "17.5", reps: "12" }], remarks: "" },
+          { name: "Seated Leg Curl", sets: [{ weight: "25", reps: "12" }, { weight: "25", reps: "15" }], remarks: "" },
+          { name: "Bicep Curl", sets: [{ weight: "6", reps: "12" }, { weight: "6", reps: "12" }, { weight: "6", reps: "12" }], remarks: "" },
+          { name: "Lateral Raises", sets: [{ weight: "5", reps: "12" }, { weight: "5", reps: "14" }], remarks: "" }
         ]
       }
     ];
 
     let currentView = "day1";
     let state = JSON.parse(localStorage.getItem("tracker_state") || "null");
+    let editingHistoryId = null;
+
+    // Timer state
+    let timerInterval = null;
+    let timerEndTime = null;
 
     if (!state || state.version !== APP_VERSION) {
       const existingHistory = (state && state.history && state.history.length > 0) ? state.history : initialHistory;
@@ -415,6 +478,8 @@
         name: ex.name,
         originalName: ex.name,
         target: ex.target,
+        restSec: ex.restSec || 120,
+        remarks: "",
         showSwap: false,
         sets: Array.from({ length: ex.sets || 3 }, () => ({ weight: "", reps: "", done: false }))
       }));
@@ -507,14 +572,17 @@
           </div>
         `).join("");
 
+        const restMins = (ex.restSec / 60).toFixed(1).replace(/\.0$/, '');
+
         card.innerHTML = `
           <div class="card-header">
             <div class="card-title-group">
               <span class="card-title">${ex.name}</span>
               ${isSwapped ? '<span class="card-badge">Swapped</span>' : ''}
             </div>
-            <div class="card-controls">
+            <div class="card-meta">
               <span class="card-target">${ex.target || ''}</span>
+              <span class="rest-badge" onclick="startRestTimer(${ex.restSec})">⏱️ ${restMins}m</span>
               <button class="btn-swap-toggle" onclick="toggleSwap(${exIdx})">⇄ Swap</button>
             </div>
           </div>
@@ -526,6 +594,8 @@
             </div>
           ` : ''}
           ${setsHTML}
+          <input type="text" class="remarks-input" placeholder="💬 Remarks / Notes (e.g., machine setup, feel)..." 
+                 value="${ex.remarks || ''}" oninput="updateRemarks(${exIdx}, this.value)">
           <button class="btn-secondary" onclick="addSet(${exIdx})">+ Add Set</button>
         `;
         container.appendChild(card);
@@ -559,11 +629,20 @@
       if (sIdx === 0 && field === 'weight') renderWorkout();
     }
 
+    function updateRemarks(exIdx, val) {
+      state.active[currentView][exIdx].remarks = val;
+      saveState();
+    }
+
     function toggleDone(exIdx, sIdx) {
-      const set = state.active[currentView][exIdx].sets[sIdx];
+      const ex = state.active[currentView][exIdx];
+      const set = ex.sets[sIdx];
       set.done = !set.done;
       saveState();
       renderWorkout();
+      if (set.done) {
+        startRestTimer(ex.restSec || 120);
+      }
     }
 
     function addSet(exIdx) {
@@ -589,17 +668,59 @@
       const name = prompt("Enter new exercise name:");
       if (!name) return;
       const target = prompt("Target reps (e.g., 8-10 reps):") || "8-10 reps";
+      const rest = parseInt(prompt("Rest time in seconds (e.g., 120):") || "120");
       
-      state.templates[currentView].push({ name, target, sets: 3 });
+      state.templates[currentView].push({ name, target, restSec: rest, sets: 3 });
       state.active[currentView].push({
         name,
         originalName: name,
         target,
+        restSec: rest,
+        remarks: "",
         showSwap: false,
         sets: [{ weight: "", reps: "", done: false }]
       });
       saveState();
       renderWorkout();
+    }
+
+    /* Rest Timer Controls */
+    function startRestTimer(seconds) {
+      clearInterval(timerInterval);
+      timerEndTime = Date.now() + (seconds * 1000);
+      const bar = document.getElementById("rest-timer-bar");
+      bar.style.display = "flex";
+      updateTimerDisplay();
+
+      timerInterval = setInterval(() => {
+        const remaining = Math.round((timerEndTime - Date.now()) / 1000);
+        if (remaining <= 0) {
+          clearInterval(timerInterval);
+          bar.style.display = "none";
+          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        } else {
+          updateTimerDisplay();
+        }
+      }, 500);
+    }
+
+    function adjustRestTimer(deltaSec) {
+      if (timerEndTime) {
+        timerEndTime += deltaSec * 1000;
+        updateTimerDisplay();
+      }
+    }
+
+    function stopRestTimer() {
+      clearInterval(timerInterval);
+      document.getElementById("rest-timer-bar").style.display = "none";
+    }
+
+    function updateTimerDisplay() {
+      const remaining = Math.max(0, Math.round((timerEndTime - Date.now()) / 1000));
+      const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+      const s = (remaining % 60).toString().padStart(2, '0');
+      document.getElementById("timer-display").innerText = `${m}:${s}`;
     }
 
     function finishWorkout() {
@@ -612,7 +733,8 @@
         if (filledSets.length > 0) {
           completedExercises.push({
             name: ex.name,
-            sets: filledSets.map(s => ({ weight: s.weight, reps: s.reps }))
+            sets: filledSets.map(s => ({ weight: s.weight, reps: s.reps })),
+            remarks: ex.remarks || ""
           });
           const tpl = state.templates[currentView].find(t => t.name === ex.originalName);
           if (tpl && ex.name === ex.originalName) {
@@ -634,28 +756,14 @@
         exercises: completedExercises
       });
 
+      stopRestTimer();
       initActiveSets(currentView);
       saveState();
       alert("Workout archived! Inputs refreshed for your next session.");
       setView("history");
     }
 
-    function deleteHistoryEntry(id) {
-      if (confirm("Delete this completed workout from history?")) {
-        state.history = state.history.filter(session => session.id !== id);
-        saveState();
-        renderHistory();
-      }
-    }
-
-    function clearAllHistory() {
-      if (confirm("Are you sure you want to delete ALL workout history? This action cannot be undone.")) {
-        state.history = [];
-        saveState();
-        renderHistory();
-      }
-    }
-
+    /* History & Editing Engine */
     function renderHistory() {
       const container = document.getElementById("history-view");
       container.innerHTML = "";
@@ -681,22 +789,97 @@
         entries.forEach(entry => {
           const item = document.createElement("div");
           item.className = "history-item";
-          
-          let rowsHTML = entry.exercises.map(e => `
-            <div class="history-row">
-              <strong>${e.name}:</strong> ${e.sets.map(s => `${s.weight}kg × ${s.reps}`).join(", ")}
-            </div>
-          `).join("");
 
-          item.innerHTML = `
-            <div class="history-item-header">
-              <span>${entry.day} — ${entry.date}</span>
-              <button class="btn-del" style="height: auto; padding: 0 4px;" onclick="deleteHistoryEntry(${entry.id})">✕</button>
-            </div>
-            ${rowsHTML}
-          `;
+          if (editingHistoryId === entry.id) {
+            // Editable card view
+            let editExercisesHTML = entry.exercises.map((e, eIdx) => {
+              let setsEdit = e.sets.map((s, sIdx) => `
+                <div class="set-row" style="margin-bottom: 4px;">
+                  <span class="set-label">S${sIdx + 1}</span>
+                  <input type="number" step="any" value="${s.weight}" oninput="state.history.find(h=>h.id===${entry.id}).exercises[${eIdx}].sets[${sIdx}].weight=this.value">
+                  <input type="number" value="${s.reps}" oninput="state.history.find(h=>h.id===${entry.id}).exercises[${eIdx}].sets[${sIdx}].reps=this.value">
+                  <span></span>
+                  <span></span>
+                </div>
+              `).join("");
+
+              return `
+                <div style="margin-bottom: 12px; border-top: 1px solid var(--border); padding-top: 8px;">
+                  <div style="font-weight: 600; font-size: 14px; margin-bottom: 6px;">${e.name}</div>
+                  ${setsEdit}
+                  <input type="text" class="remarks-input" placeholder="Remarks" value="${e.remarks || ''}" 
+                         oninput="state.history.find(h=>h.id===${entry.id}).exercises[${eIdx}].remarks=this.value">
+                </div>
+              `;
+            }).join("");
+
+            item.innerHTML = `
+              <div class="history-item-header">
+                <input type="date" value="${entry.date}" style="width: auto; padding: 4px 8px; font-size: 13px;"
+                       oninput="state.history.find(h=>h.id===${entry.id}).date=this.value">
+                <div class="history-actions">
+                  <button class="btn-edit" style="color: var(--green);" onclick="saveHistoryEdit()">Save</button>
+                  <button class="btn-del" style="height: auto;" onclick="cancelHistoryEdit()">✕</button>
+                </div>
+              </div>
+              ${editExercisesHTML}
+            `;
+          } else {
+            // Read-only card view
+            let rowsHTML = entry.exercises.map(e => `
+              <div class="history-row">
+                <strong>${e.name}:</strong> ${e.sets.map(s => `${s.weight}kg × ${s.reps}`).join(", ")}
+                ${e.remarks ? `<div class="history-remarks">💬 ${e.remarks}</div>` : ''}
+              </div>
+            `).join("");
+
+            item.innerHTML = `
+              <div class="history-item-header">
+                <span>${entry.day} — ${entry.date}</span>
+                <div class="history-actions">
+                  <button class="btn-edit" onclick="startHistoryEdit(${entry.id})">✎ Edit</button>
+                  <button class="btn-del" style="height: auto; padding: 0 4px;" onclick="deleteHistoryEntry(${entry.id})">✕</button>
+                </div>
+              </div>
+              ${rowsHTML}
+            `;
+          }
+
           container.appendChild(item);
         });
+      }
+    }
+
+    function startHistoryEdit(id) {
+      editingHistoryId = id;
+      renderHistory();
+    }
+
+    function saveHistoryEdit() {
+      editingHistoryId = null;
+      saveState();
+      renderHistory();
+    }
+
+    function cancelHistoryEdit() {
+      editingHistoryId = null;
+      state = JSON.parse(localStorage.getItem("tracker_state"));
+      renderHistory();
+    }
+
+    function deleteHistoryEntry(id) {
+      if (confirm("Delete this completed workout from history?")) {
+        state.history = state.history.filter(session => session.id !== id);
+        saveState();
+        renderHistory();
+      }
+    }
+
+    function clearAllHistory() {
+      if (confirm("Are you sure you want to delete ALL workout history? This action cannot be undone.")) {
+        state.history = [];
+        saveState();
+        renderHistory();
       }
     }
 
@@ -705,11 +888,11 @@
         alert("No history data to export.");
         return;
       }
-      let csv = "Date,Day,Exercise,Set,Weight (kg),Reps\n";
+      let csv = "Date,Day,Exercise,Set,Weight (kg),Reps,Remarks\n";
       state.history.forEach(session => {
         session.exercises.forEach(ex => {
           ex.sets.forEach((set, idx) => {
-            csv += `"${session.date}","${session.day}","${ex.name}","Set ${idx + 1}","${set.weight}","${set.reps}"\n`;
+            csv += `"${session.date}","${session.day}","${ex.name}","Set ${idx + 1}","${set.weight}","${set.reps}","${(ex.remarks || '').replace(/"/g, '""')}"\n`;
           });
         });
       });
