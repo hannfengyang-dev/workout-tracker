@@ -788,17 +788,27 @@
       initActiveSets(currentView);
       saveState();
 
+      // Automatic background sync using phone-stored key
       if (GOOGLE_SHEET_URL && GOOGLE_SHEET_URL.startsWith("https")) {
-        fetch(GOOGLE_SHEET_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({
-            date: dateStr,
-            day: currentView === "day1" ? "Day 1" : "Day 2",
-            exercises: completedExercises
-          })
-        }).catch(err => console.error("Sheet sync failed:", err));
+        let userKey = localStorage.getItem("sheet_sync_key");
+        if (!userKey) {
+          userKey = prompt("Enter your private Sheet Sync Key:");
+          if (userKey) localStorage.setItem("sheet_sync_key", userKey.trim());
+        }
+      
+        if (userKey) {
+          fetch(GOOGLE_SHEET_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({
+              key: userKey,
+              date: dateStr,
+              day: currentView === "day1" ? "Day 1" : "Day 2",
+              exercises: completedExercises
+            })
+          }).catch(err => console.error("Sheet sync failed:", err));
+        }
       }
 
       alert("Workout archived! Inputs refreshed for your next session.");
