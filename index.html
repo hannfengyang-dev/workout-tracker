@@ -473,20 +473,6 @@
       initActiveSets("day1");
       initActiveSets("day2");
       saveState();
-
-      // Automatic background sync to Google Sheet
-      if (GOOGLE_SHEET_URL && GOOGLE_SHEET_URL.startsWith("https")) {
-        fetch(GOOGLE_SHEET_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({
-            date: dateStr,
-            day: currentView === "day1" ? "Day 1" : "Day 2",
-            exercises: completedExercises
-          })
-        }).catch(err => console.error("Sheet sync failed:", err));
-      }
     }
 
     function initActiveSets(day) {
@@ -775,6 +761,21 @@
       stopRestTimer();
       initActiveSets(currentView);
       saveState();
+
+      // Automatic background sync to Google Sheet
+      if (GOOGLE_SHEET_URL && GOOGLE_SHEET_URL.startsWith("https")) {
+        fetch(GOOGLE_SHEET_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify({
+            date: dateStr,
+            day: currentView === "day1" ? "Day 1" : "Day 2",
+            exercises: completedExercises
+          })
+        }).catch(err => console.error("Sheet sync failed:", err));
+      }
+
       alert("Workout archived! Inputs refreshed for your next session.");
       setView("history");
     }
@@ -807,7 +808,6 @@
           item.className = "history-item";
 
           if (editingHistoryId === entry.id) {
-            // Editable card view
             let editExercisesHTML = entry.exercises.map((e, eIdx) => {
               let setsEdit = e.sets.map((s, sIdx) => `
                 <div class="set-row" style="margin-bottom: 4px;">
@@ -841,7 +841,6 @@
               ${editExercisesHTML}
             `;
           } else {
-            // Read-only card view
             let rowsHTML = entry.exercises.map(e => `
               <div class="history-row">
                 <strong>${e.name}:</strong> ${e.sets.map(s => `${s.weight}kg × ${s.reps}`).join(", ")}
