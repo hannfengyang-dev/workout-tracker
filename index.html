@@ -253,6 +253,8 @@
   <script>
     const APP_VERSION = "v4_rest_remarks_edit";
 
+    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbzGaVr4rI5fd6Zt7nfqeqmrfN8ilVwH5iTzyExdkuvuggbSFdIELYfmN1fxvrJoMNQj/exec";
+
     const swapCatalog = {
       "Lat Pulldown": ["Machine High Row", "Cable Pullover", "Neutral Grip Pulldown", "Assisted Pull-up"],
       "Machine Shoulder Press": ["Dumbbell Shoulder Press", "Overhead Barbell Press", "Arnold Press", "Smith Machine Press"],
@@ -471,6 +473,20 @@
       initActiveSets("day1");
       initActiveSets("day2");
       saveState();
+
+      // Automatic background sync to Google Sheet
+      if (GOOGLE_SHEET_URL && GOOGLE_SHEET_URL.startsWith("https")) {
+        fetch(GOOGLE_SHEET_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify({
+            date: dateStr,
+            day: currentView === "day1" ? "Day 1" : "Day 2",
+            exercises: completedExercises
+          })
+        }).catch(err => console.error("Sheet sync failed:", err));
+      }
     }
 
     function initActiveSets(day) {
